@@ -20,7 +20,7 @@ Run `ng generate component component-name` to generate a new component. You can 
 
 In order to update / generate the Open API stubs and data model, run the following command while the DRES backend is running
 
-`openapi-generator generate -g typescript-angular -i http://localhost:8080/swagger-docs -o openapi --skip-validate-spec --additional-properties npmName=@dres-openapi/api,snapshot=true,ngVersion=9.1.0`
+`openapi-generator generate -g typescript-angular -i http://localhost:8080/swagger-docs -o openapi --skip-validate-spec --additional-properties npmName=@dres-openapi/api,snapshot=true,ngVersion=10.0.0`
 
 The assumption for this snippet is, that the DRES backend is running on localhost using port 8080. Adjust according to your needs.
 
