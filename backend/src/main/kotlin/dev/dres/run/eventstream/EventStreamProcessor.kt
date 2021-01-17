@@ -1,12 +1,10 @@
 package dev.dres.run.eventstream
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.KotlinModule
+import dev.dres.run.eventstream.sinks.EventSink
+import dev.dres.run.eventstream.sinks.JsonEventSink
 import dev.dres.utilities.extensions.read
 import dev.dres.utilities.extensions.write
 import org.slf4j.LoggerFactory
-import java.io.File
-import java.io.PrintWriter
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.locks.StampedLock
 
@@ -18,20 +16,13 @@ object EventStreamProcessor {
     private var flushTimer = 0L
 
     private lateinit var processorThread: Thread
-    private val mapper = ObjectMapper().apply { registerModule(KotlinModule()) }
     private val LOGGER = LoggerFactory.getLogger(this.javaClass)
 
     private val eventQueue = ConcurrentLinkedQueue<StreamEvent>()
     private val eventHandlers = mutableListOf<StreamEventHandler>()
     private val handlerLock = StampedLock()
-    private val eventSink = PrintWriter(File("events/${System.currentTimeMillis()}.txt").also { it.parentFile.mkdirs() })
+    private val eventSinks = mutableListOf<EventSink>()
 
-    private val eventBuffer = mutableListOf<StreamEvent>()
-    private val eventBufferRetentionTime = 60_000 //TODO make configurable
-    private val eventBufferLock = StampedLock()
-
-    val recentEvents: List<StreamEvent>
-    get() = eventBufferLock.read {eventBuffer}
 
     fun event(event: StreamEvent) = eventQueue.add(event)
     fun register(vararg handler: StreamEventHandler) = handlerLock.write { eventHandlers.addAll(handler) }
@@ -40,6 +31,8 @@ object EventStreamProcessor {
         if (active) {
             return
         }
+
+        eventSinks.add(JsonEventSink())
 
         active = true
 
@@ -61,19 +54,17 @@ object EventStreamProcessor {
                             }
                         }
 
-                        try {
-                            eventSink.println(
-                                    mapper.writeValueAsString(event)
-                            )
-                        } catch (t: Throwable) {
-                            LOGGER.error("Error while storing event $event", t)
+                        for (eventSink in eventSinks) {
+                            try {
+                                eventSink.write(event)
+                            } catch (t: Throwable) {
+                                LOGGER.error("Error while storing event $event in sink $eventSink", t)
+                            }
                         }
 
-                        eventBufferLock.write { eventBuffer.add(event) }
+
                     }
 
-                    val removeThreshold = System.currentTimeMillis() - eventBufferRetentionTime
-                    eventBufferLock.write { eventBuffer.removeIf { it.timeStamp < removeThreshold } }
 
 
                 } catch (t : Throwable) {
@@ -82,15 +73,19 @@ object EventStreamProcessor {
                     Thread.sleep(10)
                 }
 
-                if (flushTimer < System.currentTimeMillis()){
-                    eventSink.flush()
+                if (flushTimer < System.currentTimeMillis()) {
+                    for (eventSink in eventSinks) {
+                        eventSink.flush()
+                    }
                     flushTimer = System.currentTimeMillis() + flushInterval
                 }
 
             }
 
-            eventSink.flush()
-            eventSink.close()
+            for (eventSink in eventSinks) {
+                eventSink.flush()
+                eventSink.close()
+            }
 
         }, "EventStreamProcessorThread")
 
