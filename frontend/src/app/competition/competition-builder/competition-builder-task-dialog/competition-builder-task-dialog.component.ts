@@ -1,7 +1,9 @@
 import {Component, ElementRef, Inject, ViewChild} from '@angular/core';
 import {MAT_DIALOG_DATA, MatDialog, MatDialogConfig, MatDialogRef} from '@angular/material/dialog';
 import {
-    CollectionService, ConfiguredOptionTargetType,
+    CollectionService,
+    ConfiguredOptionQueryComponentType,
+    ConfiguredOptionTargetType,
     RestMediaCollection,
     RestMediaItem,
     RestTaskDescription,
@@ -73,6 +75,13 @@ export class CompetitionBuilderTaskDialogComponent {
         this.mediaCollectionSource = this.collectionService.getApiCollectionList();
     }
 
+    uploaded = (taskData: string) => {
+        const task = JSON.parse(taskData) as RestTaskDescription;
+        this.builder = new CompetitionFormBuilder(this.data.taskGroup, this.data.taskType, this.collectionService, task);
+        this.form = this.builder.form;
+        console.log("Loaded task: "+JSON.stringify(task));
+    };
+
     private static randInt(min: number, max: number): number {
         min = Math.floor(min);
         max = Math.ceil(max);
@@ -98,7 +107,7 @@ export class CompetitionBuilderTaskDialogComponent {
     /**
      * Handler for (+) button for query hint form component.
      */
-    public addQueryComponent(componentType: ConfiguredOptionTargetType.OptionEnum) {
+    public addQueryComponent(componentType: ConfiguredOptionQueryComponentType.OptionEnum) {
         this.builder.addComponentForm(componentType);
     }
 
@@ -140,12 +149,9 @@ export class CompetitionBuilderTaskDialogComponent {
         return JSON.stringify(this.builder.fetchFormData());
     }
 
-    /**
-     * Prints the JSONified form data to console
-     */
-    export() {
-        console.log(this.asJson());
-    }
+    fileProvider = () => this.builder.fetchFormData()?.name ? this.builder.fetchFormData().name : 'task-download.json';
+
+    downloadProvider = () => this.asJson();
 
     /**
      * Picks a ranomd {@link MediaItem} from the list.
