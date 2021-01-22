@@ -85,6 +85,9 @@ dependencies {
     ////// Cache
     compile group: 'com.github.ben-manes.caffeine', name: 'caffeine', version: '2.8.6'
 
+    ///// InfluxDB
+    compile group: 'com.influxdb', name: 'influxdb-client-java', version: '1.14.0'
+
     ////// Log4J
     compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.13.1'
     compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.13.1'
