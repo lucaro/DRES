@@ -58,6 +58,7 @@ class InfluxDBEventSink(private val influxDBClient: InfluxDBClient) : EventSink 
                 .addField("sortType", event.queryResultLog.sortType.joinToString())
                 .addField("resultSetAvailability", event.queryResultLog.resultSetAvailability)
             is InvalidRequestEvent -> p.addTag("run", event.runId.string)
+            is ScoreEvent -> p.addTag("run", event.runId.string).addTag("team", event.teamId).addField("name", event.name).addField("score", event.score)
         }
 
     }

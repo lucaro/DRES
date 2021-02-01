@@ -3,6 +3,8 @@ package dev.dres.run.updatables
 import dev.dres.data.model.run.CompetitionRun
 import dev.dres.run.RunManager
 import dev.dres.run.RunManagerStatus
+import dev.dres.run.eventstream.EventStreamProcessor
+import dev.dres.run.eventstream.ScoreEvent
 import dev.dres.run.score.ScoreTimePoint
 import dev.dres.run.score.scoreboard.Scoreboard
 import java.util.*
@@ -41,7 +43,10 @@ class ScoreboardsUpdatable(val scoreboards: List<Scoreboard>, val updateInterval
             this.lastUpdate = now
             this.scoreboards.forEach {
                 it.update(this.run.runs)
-                it.scores().map{ score -> this._timeSeries.add(ScoreTimePoint(it.name, score)) }
+                it.scores().forEach{ score ->
+                    this._timeSeries.add(ScoreTimePoint(it.name, score))
+                    EventStreamProcessor.event(ScoreEvent(this.run.id, score.teamId, it.name, score.score ))
+                }
             }
         }
     }
