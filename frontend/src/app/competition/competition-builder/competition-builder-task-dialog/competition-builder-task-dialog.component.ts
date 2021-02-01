@@ -22,6 +22,7 @@ import {
     VideoPlayerSegmentBuilderData
 } from './video-player-segment-builder/video-player-segment-builder.component';
 import {AdvancedBuilderDialogComponent, AdvancedBuilderDialogData} from './advanced-builder-dialog/advanced-builder-dialog.component';
+import {VideoPlayerSegmentBuilderDialogComponent} from './video-player-segment-builder-dialog/video-player-segment-builder-dialog.component';
 
 
 /**
@@ -54,16 +55,6 @@ export function RequireMatch(control: AbstractControl) {
 })
 export class CompetitionBuilderTaskDialogComponent {
 
-    form: FormGroup;
-    units = ['FRAME_NUMBER', 'SECONDS', 'MILLISECONDS', 'TIMECODE'];
-    /** Data source for list of {@link MediaCollection}. Loaded upon construction of the dialog. */
-    mediaCollectionSource: Observable<RestMediaCollection[]>;
-    /** The {@link CompetitionFormBuilder} used by this dialogue. */
-    builder: CompetitionFormBuilder;
-    @ViewChild('videoPlayer', {static: false}) video: ElementRef;
-    viewLayout = 'list';
-    private imagePreviewMap = new Set<number>();
-
     constructor(public dialogRef: MatDialogRef<CompetitionBuilderTaskDialogComponent>,
                 public collectionService: CollectionService,
                 @Inject(MAT_DIALOG_DATA) public data: CompetitionBuilderTaskDialogData,
@@ -75,17 +66,29 @@ export class CompetitionBuilderTaskDialogComponent {
         this.mediaCollectionSource = this.collectionService.getApiCollectionList();
     }
 
-    uploaded = (taskData: string) => {
-        const task = JSON.parse(taskData) as RestTaskDescription;
-        this.builder = new CompetitionFormBuilder(this.data.taskGroup, this.data.taskType, this.collectionService, task);
-        this.form = this.builder.form;
-        console.log("Loaded task: "+JSON.stringify(task));
-    };
+    form: FormGroup;
+    units = ['FRAME_NUMBER', 'SECONDS', 'MILLISECONDS', 'TIMECODE'];
+    /** Data source for list of {@link MediaCollection}. Loaded upon construction of the dialog. */
+    mediaCollectionSource: Observable<RestMediaCollection[]>;
+    /** The {@link CompetitionFormBuilder} used by this dialogue. */
+    builder: CompetitionFormBuilder;
+    @ViewChild('videoPlayer', {static: false}) video: ElementRef;
+    viewLayout = 'list';
+    showVideo = false;
+    videoSegmentData: VideoPlayerSegmentBuilderData;
+    private imagePreviewMap = new Set<number>();
 
     private static randInt(min: number, max: number): number {
         min = Math.floor(min);
         max = Math.ceil(max);
         return Math.round(Math.random() * (max - min + 1) + min);
+    }
+
+    uploaded = (taskData: string) => {
+        const task = JSON.parse(taskData) as RestTaskDescription;
+        this.builder = new CompetitionFormBuilder(this.data.taskGroup, this.data.taskType, this.collectionService, task);
+        this.form = this.builder.form;
+        console.log('Loaded task: ' + JSON.stringify(task));
     }
 
     /**
@@ -200,19 +203,27 @@ export class CompetitionBuilderTaskDialogComponent {
         if (endControl && endControl.value) {
             end = Number.parseInt(endControl.value, 10);
         }
-        const config = {
-            width: '800px', data: {mediaItem, segmentStart: start, segmentEnd: end}
-        } as MatDialogConfig<VideoPlayerSegmentBuilderData>;
-        const dialogRef = this.dialog.open(VideoPlayerSegmentBuilderComponent, config);
-        dialogRef.afterClosed().pipe(
+        // const config = {
+        //     width: '800px', data: {mediaItem, segmentStart: start, segmentEnd: end}
+        // } as MatDialogConfig<VideoPlayerSegmentBuilderData>;
+        // const dialogRef = this.dialog.open(VideoPlayerSegmentBuilderDialogComponent, config);
+        /*dialogRef.afterClosed().pipe(
             filter(r => r != null))
             .subscribe((r: TemporalRange) => {
                 console.log(`Finished: ${r}`);
                 startControl.setValue(r.start.value);
                 endControl.setValue(r.end.value);
                 unitControl.setValue(TemporalPoint.UnitEnum.SECONDS);
-            });
+            });*/
+        this.videoSegmentData = {mediaItem, segmentStart: start, segmentEnd: end} as VideoPlayerSegmentBuilderData;
+        this.showVideo = !this.showVideo;
+    }
 
+    onRangeChange( range: TemporalRange, startControl?: FormControl, endControl?: FormControl, unitControl?: FormControl){
+        startControl?.setValue(range.start.value);
+        endControl?.setValue(range.end.value);
+        unitControl?.setValue(TemporalPoint.UnitEnum.SECONDS);
+        console.log('Range updated');
     }
 
     isImageMediaItem(mi: RestMediaItem): boolean {
@@ -265,7 +276,7 @@ export class CompetitionBuilderTaskDialogComponent {
                 this.builder.removeTargetForm(0);
                 const mediaCollectionId = this.builder.form.get('mediaCollection').value;
                 r.forEach((name, idx) => {
-                    const form = this.builder.addTargetForm(ConfiguredOptionTargetType.OptionEnum.MULTIPLEMEDIAITEMS);
+                    const form = this.builder.addTargetForm(ConfiguredOptionTargetType.OptionEnum.MULTIPLE_MEDIA_ITEMS);
                     console.log(`${mediaCollectionId} ? ${name}`);
                     const nameNoExt = name.substring(0, name.lastIndexOf('.'));
                     this.collectionService.getApiCollectionWithCollectionidWithStartswith(mediaCollectionId, nameNoExt)

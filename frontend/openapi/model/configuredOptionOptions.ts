@@ -18,8 +18,8 @@ export interface ConfiguredOptionOptions {
 export namespace ConfiguredOptionOptions {
     export type OptionEnum = 'HIDDEN_RESULTS' | 'MAP_TO_SEGMENT';
     export const OptionEnum = {
-        HIDDENRESULTS: 'HIDDEN_RESULTS' as OptionEnum,
-        MAPTOSEGMENT: 'MAP_TO_SEGMENT' as OptionEnum
+        HIDDEN_RESULTS: 'HIDDEN_RESULTS' as OptionEnum,
+        MAP_TO_SEGMENT: 'MAP_TO_SEGMENT' as OptionEnum
     };
 }
 

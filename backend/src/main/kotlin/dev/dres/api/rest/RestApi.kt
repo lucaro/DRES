@@ -29,8 +29,14 @@ object RestApi {
 
     private var javalin: Javalin? = null
 
+    private lateinit var openApiPlugin: OpenApiPlugin
+
     private val logMarker = MarkerFactory.getMarker("REST")
     private val logger = LoggerFactory.getLogger(this.javaClass)
+
+    fun getOpenApiPlugin(): OpenApiPlugin {
+        return openApiPlugin
+    }
 
     fun init(config: Config, dataAccessLayer: DataAccessLayer) {
 
@@ -125,6 +131,7 @@ object RestApi {
 
                 // Judgement
                 NextOpenJudgementHandler(dataAccessLayer.collections),
+                NextOpenVoteJudgementHandler(dataAccessLayer.collections),
                 PostJudgementHandler(),
                 JudgementStatusHandler(),
                 JudgementVoteHandler(),
@@ -144,10 +151,8 @@ object RestApi {
             it.registerPlugin(OpenApiPlugin(
                 /* "Internal" DRES openapi (<host>/swagger-ui) */
                 getOpenApiOptionsFor(),
-                /* "Public" Logging Endpoint (<host>/swagger-log) */
-                getOpenApiOptionsFor(OpenApiEndpointOptions.dresLogOnly),
-                /* "Public" submission endpoint (<host>/swagger-submit */
-                getOpenApiOptionsFor(OpenApiEndpointOptions.dresSubmissionOnly)))
+                /* "Public" client endpoint (<host>/swagger-client */
+                getOpenApiOptionsFor(OpenApiEndpointOptions.dresSubmittingClientOptions)))
             it.defaultContentType = "application/json"
             it.prefer405over404 = true
             it.sessionHandler { fileSessionHandler(config) }

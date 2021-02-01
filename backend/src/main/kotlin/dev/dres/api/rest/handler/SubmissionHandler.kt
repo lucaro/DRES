@@ -115,7 +115,8 @@ class SubmissionHandler (val collections: DAO<MediaCollection>, private val item
                 OpenApiParam(PARAMETER_NAME_ITEM, String::class, "Identifier for the actual media object or media file."),
                 OpenApiParam(PARAMETER_NAME_FRAME, Int::class, "Frame number for media with temporal progression (e.g. video)."),
                 OpenApiParam(PARAMETER_NAME_SHOT, Int::class, "Shot number for media with temporal progression (e.g. video)."),
-                OpenApiParam(PARAMETER_NAME_TIMECODE, String::class, "Timecode for media with temporal progression (e.g. video).")
+                OpenApiParam(PARAMETER_NAME_TIMECODE, String::class, "Timecode for media with temporal progression (e.g. video)."),
+                OpenApiParam("session", String::class, "Session Token", required = true, allowEmptyValue = false)
             ],
             tags = ["Submission"],
             responses = [
@@ -141,7 +142,7 @@ class SubmissionHandler (val collections: DAO<MediaCollection>, private val item
         AuditLogger.submission(run.id, run.currentTask?.name ?: "no task", submission, LogEventSource.REST, ctx.sessionId(), ctx.req.remoteAddr)
         EventStreamProcessor.event(SubmissionEvent(ctx.sessionId(), run.id, run.currentTaskRun?.uid, submission))
 
-        if (run.currentTask?.taskType?.options?.contains(TaskType.Options.HIDDEN_RESULTS) == true) { //pre-generate preview
+        if (run.currentTask?.taskType?.options?.any{ it.option == TaskType.Options.HIDDEN_RESULTS} == true) { //pre-generate preview
             generatePreview(submission)
         }
 

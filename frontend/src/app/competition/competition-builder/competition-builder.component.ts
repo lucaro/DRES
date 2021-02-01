@@ -2,8 +2,12 @@ import {Component, HostListener, OnDestroy, OnInit, ViewChild} from '@angular/co
 import {ActivatedRoute, Router, RouterStateSnapshot} from '@angular/router';
 import {filter} from 'rxjs/operators';
 import {
-    CompetitionService, ConfiguredOptionOptions, ConfiguredOptionQueryComponentType, ConfiguredOptionScoringType,
-    ConfiguredOptionSubmissionFilterType, ConfiguredOptionTargetType,
+    CompetitionService,
+    ConfiguredOptionOptions,
+    ConfiguredOptionQueryComponentType,
+    ConfiguredOptionScoringType,
+    ConfiguredOptionSubmissionFilterType,
+    ConfiguredOptionTargetType,
     RestCompetitionDescription,
     RestTaskDescription,
     RestTeam,
@@ -41,19 +45,18 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
     public static TKIS_TEMPLATE = {
         name: 'Textual KIS',
         taskDuration: 420,
-        targetType: {option: ConfiguredOptionTargetType.OptionEnum.SINGLEMEDIASEGMENT, parameters: {}},
+        targetType: {option: ConfiguredOptionTargetType.OptionEnum.SINGLE_MEDIA_SEGMENT, parameters: {}},
         score: {option: ConfiguredOptionScoringType.OptionEnum.KIS, parameters: {}},
         components: [
             {option: ConfiguredOptionQueryComponentType.OptionEnum.TEXT, parameters: {}}
         ],
         filter: [
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NODUPLICATES, parameters: {}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMITCORRECTPERTEAM, parameters: {limit: 1}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORALSUBMISSION, parameters: {}}
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NO_DUPLICATES, parameters: {}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMIT_CORRECT_PER_TEAM, parameters: {limit: 1}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORAL_SUBMISSION, parameters: {}}
         ],
         options: [
-            {option: ConfiguredOptionOptions.OptionEnum.HIDDENRESULTS, parameters: {}},
-            {option: ConfiguredOptionOptions.OptionEnum.MAPTOSEGMENT,  parameters: {}}
+            {option: ConfiguredOptionOptions.OptionEnum.HIDDEN_RESULTS, parameters: {}},
         ]
     } as TaskType;
 
@@ -61,21 +64,19 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
      * The official VBS Visual Known Item Search task type template
      */
     public static VKIS_TEMPLATE = {
-        name: 'VISUAL',
+        name: 'Visual KIS',
         taskDuration: 300,
-        targetType: {option: ConfiguredOptionTargetType.OptionEnum.SINGLEMEDIASEGMENT, parameters: {}},
+        targetType: {option: ConfiguredOptionTargetType.OptionEnum.SINGLE_MEDIA_SEGMENT, parameters: {}},
         score: {option: ConfiguredOptionScoringType.OptionEnum.KIS, parameters: {}},
         components: [
-            {option: ConfiguredOptionQueryComponentType.OptionEnum.VIDEOITEMSEGMENT, parameters: {}}
+            {option: ConfiguredOptionQueryComponentType.OptionEnum.VIDEO_ITEM_SEGMENT, parameters: {}}
         ],
         filter: [
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NODUPLICATES, parameters: {}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMITCORRECTPERTEAM, parameters: {limit: 1}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORALSUBMISSION, parameters: {}}
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NO_DUPLICATES, parameters: {}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMIT_CORRECT_PER_TEAM, parameters: {limit: 1}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORAL_SUBMISSION, parameters: {}}
         ],
-        options: [
-            {option: ConfiguredOptionOptions.OptionEnum.MAPTOSEGMENT,  parameters: {}}
-        ]
+        options: []
     } as TaskType;
 
     /**
@@ -90,11 +91,11 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
             {option: ConfiguredOptionQueryComponentType.OptionEnum.TEXT, parameters: {}}
         ],
         filter: [
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NODUPLICATES, parameters: {limit: 1}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORALSUBMISSION, parameters: {}}
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NO_DUPLICATES, parameters: {limit: 1}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.TEMPORAL_SUBMISSION, parameters: {}}
         ],
         options: [
-            {option: ConfiguredOptionOptions.OptionEnum.MAPTOSEGMENT,  parameters: {}}
+            {option: ConfiguredOptionOptions.OptionEnum.MAP_TO_SEGMENT,  parameters: {}}
         ]
     } as TaskType;
 
@@ -104,17 +105,17 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
     public static LSC_TEMPLATE = {
         name: 'LSC',
         taskDuration: 300,
-        targetType: {option: ConfiguredOptionTargetType.OptionEnum.MULTIPLEMEDIAITEMS, parameters: {}},
+        targetType: {option: ConfiguredOptionTargetType.OptionEnum.MULTIPLE_MEDIA_ITEMS, parameters: {}},
         score: {option: ConfiguredOptionScoringType.OptionEnum.KIS, parameters: {}},
         components: [
             {option: ConfiguredOptionQueryComponentType.OptionEnum.TEXT, parameters: {}}
         ],
         filter: [
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NODUPLICATES, parameters: {}},
-            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMITCORRECTPERTEAM, parameters: {}}
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.NO_DUPLICATES, parameters: {}},
+            {option: ConfiguredOptionSubmissionFilterType.OptionEnum.LIMIT_CORRECT_PER_TEAM, parameters: {}}
         ],
         options: [
-            {option: ConfiguredOptionOptions.OptionEnum.HIDDENRESULTS,  parameters: {}}
+            {option: ConfiguredOptionOptions.OptionEnum.HIDDEN_RESULTS,  parameters: {}}
         ]
     } as TaskType;
 
@@ -308,7 +309,7 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
                     data: {
                         taskGroup: this.competition.taskGroups.find(g => g.name === task.taskGroup),
                         taskType: this.competition.taskTypes.find(g => g.name === task.taskType),
-                        task: task
+                        task
                     } as CompetitionBuilderTaskDialogData, width: `${width}px`
                 }
             );
@@ -339,7 +340,11 @@ export class CompetitionBuilderComponent implements OnInit, OnDestroy, Deactivat
      * Generates a URL for the logo of the team.
      */
     public teamLogo(team: RestTeam): string {
-        return this.config.resolveApiUrl(`/competition/logo/${team.logoId}`);
+        if (team.logoData != null) {
+            return team.logoData;
+        } else {
+            return this.config.resolveApiUrl(`/competition/logo/${team.logoId}`);
+        }
     }
 
     public addTeam() {
