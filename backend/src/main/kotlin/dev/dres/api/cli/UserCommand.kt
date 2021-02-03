@@ -6,14 +6,12 @@ import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.enum
-import com.github.ajalt.clikt.parameters.types.long
 import com.jakewharton.picnic.table
 import dev.dres.data.model.UID
 import dev.dres.data.model.admin.PlainPassword
 import dev.dres.data.model.admin.Role
 import dev.dres.data.model.admin.User
 import dev.dres.data.model.admin.UserName
-import dev.dres.data.model.competition.CompetitionDescription
 import dev.dres.mgmt.admin.UserManager
 import dev.dres.mgmt.admin.UserManager.MIN_LENGTH_PASSWORD
 import dev.dres.mgmt.admin.UserManager.MIN_LENGTH_USERNAME
@@ -164,7 +162,7 @@ class UserCommand : NoOpCliktCommand(name = "user") {
                     }
                     println("Successfully wrote user ${user.id.string} to $path.")
                 } else {
-                    println("User with ID ${id?.string ?: "N/A"} does not exist.")
+                    println("User with ID ${id.string} does not exist.")
                 }
             }
         }

@@ -23,7 +23,7 @@ class TeamCombinationScoreHandler : StreamEventHandler {
         writer.println("task,team1,team2,score")
     }
 
-    override fun handle(event: StreamEvent) {
+    override fun handle(event: StreamEvent): List<StreamEvent> {
 
         when(event){
             is TaskStartEvent -> {
@@ -36,11 +36,11 @@ class TeamCombinationScoreHandler : StreamEventHandler {
             }
             is TaskEndEvent -> {
 
-                val taskDescription = tasks[event.taskId] ?: return
+                val taskDescription = tasks[event.taskId] ?: return emptyList()
 
                 val scorer = taskDescription.newScorer()
 
-                val submissions = submissionTaskMap[event.taskId] ?: return
+                val submissions = submissionTaskMap[event.taskId] ?: return emptyList()
 
                 val teams = submissions.map { it.teamId }.toSet().toList().sortedBy { it.string }
 
@@ -93,6 +93,9 @@ class TeamCombinationScoreHandler : StreamEventHandler {
             else -> { /* ignore */ }
 
         }
+
+        //TODO
+        return emptyList()
 
     }
 

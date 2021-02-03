@@ -7,6 +7,7 @@ import dev.dres.data.model.log.QueryEventLog
 import dev.dres.data.model.log.QueryResultLog
 import dev.dres.data.model.run.CompetitionRunId
 import dev.dres.data.model.run.Submission
+import dev.dres.data.model.run.TaskRunId
 
 sealed class StreamEvent(var timeStamp : Long = System.currentTimeMillis(), var session: String? = null)
 
@@ -22,3 +23,5 @@ class SubmissionEvent(session: String, val runId: CompetitionRunId, val taskId: 
 class QueryEventLogEvent(session: String, val runId: CompetitionRunId, val queryEventLog: QueryEventLog) : StreamEvent(session = session)
 class QueryResultLogEvent(session: String, val runId: CompetitionRunId, val queryResultLog: QueryResultLog) : StreamEvent(session = session)
 class InvalidRequestEvent(session: String, val runId: CompetitionRunId, val requestData: String) : StreamEvent(session = session)
+
+class NamedTaskValueEvent(val runId: CompetitionRunId, val task: TaskRunId, val teamId: String, val name: String, val value: Double) : StreamEvent()

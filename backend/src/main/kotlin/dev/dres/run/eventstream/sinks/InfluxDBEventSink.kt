@@ -28,6 +28,9 @@ class InfluxDBEventSink(private val influxDBClient: InfluxDBClient) : EventSink 
             writeApi.writePoints(
                 event.queryResultLog.results.map { point(it, event.timeStamp) }
             )
+            writeApi.writePoints(
+                event.queryResultLog.events.map { point(it, event.timeStamp) }
+            )
         }
     }
 
@@ -49,31 +52,28 @@ class InfluxDBEventSink(private val influxDBClient: InfluxDBClient) : EventSink 
                 .addTag("task", event.taskId?.string)
                 .addField("item", event.submission.item.name)
             is QueryEventLogEvent -> p.addTag("run", event.runId.string)
-                .addField("type", event.queryEventLog.type)
                 .addField("clientTime", event.queryEventLog.timestamp)
             is QueryResultLogEvent -> p.addTag("run", event.runId.string)
-                .addField("values", event.queryResultLog.values.joinToString())
-                .addField("usedCategories", event.queryResultLog.usedCategories.joinToString())
-                .addField("usedTypes", event.queryResultLog.usedTypes.joinToString())
-                .addField("sortType", event.queryResultLog.sortType.joinToString())
+                .addField("sortType", event.queryResultLog.sortType)
                 .addField("resultSetAvailability", event.queryResultLog.resultSetAvailability)
             is InvalidRequestEvent -> p.addTag("run", event.runId.string)
             is ScoreEvent -> p.addTag("run", event.runId.string).addTag("team", event.teamId).addField("name", event.name).addField("score", event.score)
+            is NamedTaskValueEvent -> p.addTag("run", event.runId.string).addTag("task", event.task.string).addTag("team", event.teamId).addField("name", event.name).addField("value", event.value)
         }
 
     }
 
     private fun point(event: QueryEvent, timestamp: Long) : Point = Point("QueryEvent")
         .time(timestamp, WritePrecision.MS)
-        .addTag("type", event.type.joinToString())
-        .addTag("category", event.category)
+        .addTag("type", event.type)
+        .addTag("category", event.category.name)
         .addTag("value", event.value)
         .addField("clientTime", event.timestamp)
 
     private fun point(event: QueryResult, timestamp: Long): Point = Point("QueryResult")
         .time(timestamp, WritePrecision.MS)
-        .addField("item", event.video)
-        .addField("segment", event.shot)
+        .addField("item", event.item)
+        .addField("segment", event.segment)
         .addField("frame", event.frame)
         .addField("score", event.score)
         .addField("rank", event.rank)

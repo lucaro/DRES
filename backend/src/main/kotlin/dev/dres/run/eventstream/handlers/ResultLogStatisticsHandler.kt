@@ -27,13 +27,13 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
         writer.println("timestamp,task,session,item,segment,frame,reportedRank,listRank,inTime")
     }
 
-    override fun handle(event: StreamEvent) {
+    override fun handle(event: StreamEvent): List<StreamEvent> {
 
         when (event) {
             is TaskStartEvent -> {
                 lastActiveTask[event.runId] = event.taskDescription
                 lastActiveTargets[event.runId] = when(event.taskDescription.target) {
-                    is TaskDescriptionTarget.JudgementTaskDescriptionTarget -> return //no analysis possible
+                    is TaskDescriptionTarget.JudgementTaskDescriptionTarget -> return emptyList()//no analysis possible
                     is TaskDescriptionTarget.MediaItemTarget -> listOf(event.taskDescription.target.item to null)
                     is TaskDescriptionTarget.VideoSegmentTarget ->  listOf(event.taskDescription.target.item to event.taskDescription.target.temporalRange)
                     is TaskDescriptionTarget.MultipleMediaItemTarget -> event.taskDescription.target.items.map { it to null }
@@ -41,8 +41,8 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
             }
             is QueryResultLogEvent -> {
 
-                val relevantTask = lastActiveTask[event.runId] ?: return
-                val relevantTargets = lastActiveTargets[event.runId] ?: return
+                val relevantTask = lastActiveTask[event.runId] ?: return emptyList()
+                val relevantTargets = lastActiveTargets[event.runId] ?: return emptyList()
                 
                 val correctItems = event.queryResultLog.results.mapIndexed {
                     index, queryResult ->
@@ -50,7 +50,7 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
                         index to queryResult else null }.filterNotNull()
 
                 if (correctItems.isEmpty()) {
-                    return
+                    return emptyList()
                 }
 
                 val temporalTargets = relevantTargets.filter { it.second != null }
@@ -84,5 +84,9 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
             else -> { /* ignore */ }
 
         }
+
+        //TODO
+        return emptyList()
+
     }
 }
