@@ -59,6 +59,24 @@ class InfluxDBEventSink(private val influxDBClient: InfluxDBClient) : EventSink 
             is InvalidRequestEvent -> p.addTag("run", event.runId.string)
             is ScoreEvent -> p.addTag("run", event.runId.string).addTag("team", event.teamId).addField("name", event.name).addField("score", event.score)
             is NamedTaskValueEvent -> p.addTag("run", event.runId.string).addTag("task", event.task.string).addTag("team", event.teamId).addField("name", event.name).addField("value", event.value)
+            is ResultLogStatisticEvent -> p.addTag("run", event.runId.string).addTag("task", event.task.string).addField("session", event.session).addField("item", event.item).also {
+                if (event.segment != null){
+                    it.addField("segment", event.segment)
+                }
+                if (event.frame != null){
+                    it.addField("frame", event.frame)
+                }
+                if (event.reportedRank != null){
+                    it.addField("reportedRank", event.reportedRank)
+                }
+                if (event.listRank != null){
+                    it.addField("listRank", event.listRank)
+                }
+                if (event.inTime != null){
+                    it.addField("inTime", event.inTime)
+                }
+            }
+            is CombinedTeamTaskScoreEvent -> p.addTag("run", event.runId.string).addTag("team1", event.teamId1).addTag("team2", event.teamId2).addField("score", event.score)
         }
 
     }

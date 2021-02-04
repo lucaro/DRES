@@ -25,3 +25,7 @@ class QueryResultLogEvent(session: String, val runId: CompetitionRunId, val quer
 class InvalidRequestEvent(session: String, val runId: CompetitionRunId, val requestData: String) : StreamEvent(session = session)
 
 class NamedTaskValueEvent(val runId: CompetitionRunId, val task: TaskRunId, val teamId: String, val name: String, val value: Double) : StreamEvent()
+class ResultLogStatisticEvent(val runId: CompetitionRunId, val task: TaskRunId, session: String, val item: String,
+                              val segment: Int?, val frame: Int?, val reportedRank: Int?, val listRank: Int?, val inTime: Boolean?) : StreamEvent(session = session)
+
+class CombinedTeamTaskScoreEvent(val runId: CompetitionRunId, val task: TaskRunId, val teamId1: String, val teamId2: String, val score: Double) : StreamEvent()

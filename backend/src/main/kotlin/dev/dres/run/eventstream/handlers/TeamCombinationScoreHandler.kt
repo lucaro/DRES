@@ -79,8 +79,9 @@ class TeamCombinationScoreHandler : StreamEventHandler {
 
                 val scores = scorer.scores().mapKeys { combinations[it.key]!! }
 
-                scores.forEach {
+                val results = scores.map {
                     writer.println("${event.taskId.string},${it.key.first.string},${it.key.second.string},${it.value}")
+                    CombinedTeamTaskScoreEvent(event.runId, event.taskId, it.key.first.string, it.key.second.string, it.value)
                 }
 
                 writer.flush()
@@ -88,6 +89,8 @@ class TeamCombinationScoreHandler : StreamEventHandler {
                 tasks.remove(event.taskId)
                 submissionTaskMap.remove(event.taskId)
                 taskStartMap.remove(event.taskId)
+
+                return results
 
             }
             else -> { /* ignore */ }

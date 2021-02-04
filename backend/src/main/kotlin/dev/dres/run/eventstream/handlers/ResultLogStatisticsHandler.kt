@@ -7,10 +7,9 @@ import dev.dres.data.model.basics.media.MediaItemSegmentList
 import dev.dres.data.model.basics.time.TemporalRange
 import dev.dres.data.model.competition.TaskDescription
 import dev.dres.data.model.competition.TaskDescriptionTarget
-import dev.dres.run.eventstream.QueryResultLogEvent
-import dev.dres.run.eventstream.StreamEvent
-import dev.dres.run.eventstream.StreamEventHandler
-import dev.dres.run.eventstream.TaskStartEvent
+import dev.dres.data.model.run.CompetitionRunId
+import dev.dres.data.model.run.TaskRunId
+import dev.dres.run.eventstream.*
 import dev.dres.utilities.TimeUtil
 import java.io.File
 import java.io.PrintWriter
@@ -19,7 +18,8 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
 
     private val writer = PrintWriter(File("statistics/result_log_statistics_${System.currentTimeMillis()}.csv").also { it.parentFile.mkdirs() })
 
-    private val lastActiveTask = mutableMapOf<UID, TaskDescription>()
+    private val lastActiveTask = mutableMapOf<CompetitionRunId, TaskDescription>()
+    private val lastActiveTaskId = mutableMapOf<CompetitionRunId, TaskRunId>()
     private val lastActiveTargets = mutableMapOf<UID, List<Pair<MediaItem, TemporalRange?>>>()
 
 
@@ -32,6 +32,7 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
         when (event) {
             is TaskStartEvent -> {
                 lastActiveTask[event.runId] = event.taskDescription
+                lastActiveTaskId[event.runId] = event.taskId
                 lastActiveTargets[event.runId] = when(event.taskDescription.target) {
                     is TaskDescriptionTarget.JudgementTaskDescriptionTarget -> return emptyList()//no analysis possible
                     is TaskDescriptionTarget.MediaItemTarget -> listOf(event.taskDescription.target.item to null)
@@ -55,14 +56,17 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
 
                 val temporalTargets = relevantTargets.filter { it.second != null }
 
-                if (temporalTargets.isEmpty()) { //consider only items
-                    correctItems.forEach {
+                val taskId = lastActiveTaskId[event.runId] ?: return emptyList()
+
+                val results = if (temporalTargets.isEmpty()) { //consider only items
+                    correctItems.map {
                         writer.println("${System.currentTimeMillis()},${relevantTask.name},${event.session},${it.second.item},${it.second.segment},${it.second.frame},${it.second.rank},${it.first},n/a")
+                        ResultLogStatisticEvent(event.runId, taskId, "${event.session}", it.second.item, it.second.segment, it.second.frame, it.second.rank, it.first, null)
                     }
                 } else { // consider also temporal range
                     val relevantTemporalTargets = temporalTargets.filter { it.first.name == relevantTask.name }
 
-                    correctItems.forEach {
+                    correctItems.map {
                         val correctTime = (it.second.segment != null || it.second.frame != null) && relevantTemporalTargets.any { target ->
                             val segments = this.segmentIndex[target.first.id].firstOrNull() ?: return@any false
                             val segment = TemporalRange(if (it.second.segment != null) {
@@ -74,18 +78,18 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
                             segment.overlaps(target.second!!)
                         }
                         writer.println("${System.currentTimeMillis()},${relevantTask.name},${event.session},${it.second.item},${it.second.segment},${it.second.frame},${it.second.rank},${it.first},$correctTime")
+                        ResultLogStatisticEvent(event.runId, taskId, "${event.session}", it.second.item, it.second.segment, it.second.frame, it.second.rank, it.first, correctTime)
                     }
                 }
 
                 writer.flush()
+
+                return results
                 
             }
-
             else -> { /* ignore */ }
-
         }
 
-        //TODO
         return emptyList()
 
     }

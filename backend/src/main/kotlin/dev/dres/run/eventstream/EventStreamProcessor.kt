@@ -22,6 +22,7 @@ object EventStreamProcessor {
     private val eventHandlers = mutableListOf<StreamEventHandler>()
     private val handlerLock = StampedLock()
     private val eventSinks = mutableListOf<EventSink>()
+    private val internalEventBuffer = ArrayList<StreamEvent>()
 
 
     fun event(event: StreamEvent) = eventQueue.add(event)
@@ -47,7 +48,7 @@ object EventStreamProcessor {
                         handlerLock.read {
                             for (handler in eventHandlers) {
                                 try {
-                                    handler.handle(event)
+                                    internalEventBuffer += handler.handle(event)
                                 } catch (t: Throwable) {
                                     LOGGER.error("Uncaught exception while handling event $event in ${handler.javaClass.simpleName}", t)
                                 }
@@ -62,6 +63,8 @@ object EventStreamProcessor {
                             }
                         }
 
+                        eventQueue += internalEventBuffer
+                        internalEventBuffer.clear()
 
                     }
 
