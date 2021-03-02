@@ -9,10 +9,7 @@ import dev.dres.data.model.UID
 import dev.dres.data.model.basics.media.MediaCollection
 import dev.dres.run.filter.SubmissionFilter
 import dev.dres.run.score.interfaces.TaskRunScorer
-import dev.dres.run.validation.MediaItemsSubmissionValidator
-import dev.dres.run.validation.TemporalOverlapSubmissionValidator
 import dev.dres.run.validation.interfaces.SubmissionValidator
-import dev.dres.run.validation.judged.BasicJudgementValidator
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.PrintStream
@@ -61,18 +58,6 @@ class TaskDescription(
      */
     fun newScorer(): TaskRunScorer = taskType.newScorer()
 
-    /**
-     * Generates and returns a new [SubmissionValidator] for this [TaskDescription]. Depending
-     * on the implementation, the returned instance is a new instance or being re-use.
-     *
-     * @return [SubmissionValidator].
-     */
-    fun newValidator(): SubmissionValidator = when(taskType.targetType.option){
-        TaskType.TargetType.SINGLE_MEDIA_ITEM -> MediaItemsSubmissionValidator(setOf((target as TaskDescriptionTarget.MediaItemTarget).item))
-        TaskType.TargetType.SINGLE_MEDIA_SEGMENT -> TemporalOverlapSubmissionValidator(target as TaskDescriptionTarget.VideoSegmentTarget)
-        TaskType.TargetType.MULTIPLE_MEDIA_ITEMS -> MediaItemsSubmissionValidator((target as TaskDescriptionTarget.MultipleMediaItemTarget).items.toSet())
-        TaskType.TargetType.JUDGEMENT -> BasicJudgementValidator()
-    }
 
     /**
      * Generates and returns a [SubmissionValidator] instance for this [TaskDescription]. Depending
@@ -119,7 +104,7 @@ class TaskDescription(
      * @throws FileNotFoundException
      * @throws IOException
      */
-    fun toTaskTarget(config: Config, collections: DAO<MediaCollection>): TaskTarget? = this.target.toQueryContentElement(config, collections).let { TaskTarget(this.id.string, it) }
+    fun toTaskTarget(config: Config, collections: DAO<MediaCollection>): TaskTarget = this.target.toQueryContentElement(config, collections).let { TaskTarget(this.id.string, it) }
 
     /** Produces a Textual description of the content of the task if possible */
     fun textualDescription(): String = hints.filterIsInstance(TaskDescriptionHint.TextTaskDescriptionHint::class.java)

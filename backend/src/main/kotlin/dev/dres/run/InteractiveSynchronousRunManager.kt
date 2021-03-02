@@ -9,9 +9,7 @@ import dev.dres.api.rest.types.run.websocket.ServerMessageType
 import dev.dres.data.model.UID
 import dev.dres.data.model.competition.CompetitionDescription
 import dev.dres.data.model.competition.TaskDescription
-import dev.dres.data.model.run.CompetitionRun
-import dev.dres.data.model.run.Submission
-import dev.dres.data.model.run.SubmissionStatus
+import dev.dres.data.model.run.*
 import dev.dres.run.audit.AuditLogger
 import dev.dres.run.audit.LogEventSource
 import dev.dres.run.eventstream.EventStreamProcessor
@@ -32,12 +30,12 @@ import kotlin.math.max
 
 /**
  * An implementation of [RunManager] aimed at distributed execution having a single DRES Server instance and multiple
- * viewers connected via WebSocket. Before starting a [CompetitionRun.TaskRun], all viewer instances are synchronized.
+ * viewers connected via WebSocket. Before starting a [InteractiveSynchronousCompetitionRun.TaskRun], all viewer instances are synchronized.
  *
  * @version 2.1.0
  * @author Ralph Gasser
  */
-class SynchronousRunManager(val run: CompetitionRun) : RunManager {
+class InteractiveSynchronousRunManager(val run: InteractiveSynchronousCompetitionRun) : InteractiveRunManager {
 
     private val VIEWER_TIME_OUT = 30L //TODO make configurable
 
@@ -51,28 +49,29 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     private val maxErrorCount = 5
 
     /**
-     * Alternative constructor from existing [CompetitionRun].
+     * Alternative constructor from existing [InteractiveSynchronousCompetitionRun].
      */
-    constructor(description: CompetitionDescription, name: String) : this(CompetitionRun(UID.EMPTY, name, description).apply { RunExecutor.runs.append(this) })
+    constructor(description: CompetitionDescription, name: String) : this(InteractiveSynchronousCompetitionRun(UID.EMPTY, name, description).apply { RunExecutor.runs.append(this) })
 
-    /** Run ID of this [SynchronousRunManager]. */
+    /** Run ID of this [InteractiveSynchronousRunManager]. */
     override val id: UID
         get() = this.run.id
 
-    /** Name of this [SynchronousRunManager]. */
+    /** Name of this [InteractiveSynchronousRunManager]. */
     override val name: String
         get() = this.run.name
 
-    /** The [CompetitionDescription] executed by this [SynchronousRunManager]. */
+    /** The [CompetitionDescription] executed by this [InteractiveSynchronousRunManager]. */
     override val competitionDescription: CompetitionDescription
         get() = this.run.competitionDescription
 
     /** Reference to the currently active [TaskDescription]. This is part of the task navigation. */
-    override var currentTask: TaskDescription = this.competitionDescription.tasks[0]
-        private set
+    private var currentTask = this.competitionDescription.tasks[0]
+    override fun currentTask(context: RunActionContext): TaskDescription = currentTask
 
-    /** Reference to the currently active [CompetitionRun.TaskRun].*/
-    override val currentTaskRun: CompetitionRun.TaskRun?
+
+    /** Reference to the currently active [InteractiveSynchronousCompetitionRun.TaskRun].*/
+    override val currentTaskRun: InteractiveSynchronousCompetitionRun.TaskRun?
         get() = this.stateLock.read {
             return when (this.status) {
                 RunManagerStatus.PREPARING_TASK,
@@ -82,16 +81,18 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
             }
         }
 
-    /** The list of [Submission]s for the current [CompetitionRun.TaskRun]. */
+    override fun tasks(context: RunActionContext): List<InteractiveTask> = this.run.tasks
+
+    /** The list of [Submission]s for the current [InteractiveSynchronousCompetitionRun.TaskRun]. */
     override val submissions: List<Submission>
         get() = this.stateLock.read {
             this.currentTaskRun?.submissions ?: emptyList()
         }
 
-    /** The list of all [Submission]s tracked ever received by this [SynchronousRunManager]. */
+    /** The list of all [Submission]s tracked ever received by this [InteractiveSynchronousRunManager]. */
     override val allSubmissions: List<Submission>
         get() = this.stateLock.read {
-            this.run.runs.flatMap { it.submissions }
+            this.run.tasks.flatMap { it.submissions }
         }
 
     /** The status of this [RunManager]. */
@@ -106,49 +107,52 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         }
         private set
 
-    /** Returns list [JudgementValidator]s associated with this [SynchronousRunManager]. May be empty*/
+    /** Returns list [JudgementValidator]s associated with this [InteractiveSynchronousRunManager]. May be empty*/
     override val judgementValidators: List<JudgementValidator>
-        get() = this.run.runs.mapNotNull { if (it.hasStarted && it.validator is JudgementValidator) it.validator else null }
+        get() = this.run.tasks.mapNotNull { if (it.hasStarted && it.validator is JudgementValidator) it.validator else null }
 
-    /** List of [Scoreboard]s for this [SynchronousRunManager]. */
+    /** List of [Scoreboard]s for this [InteractiveSynchronousRunManager]. */
     override val scoreboards: List<Scoreboard>
-        get() = this._scoreboards.scoreboards
+        get() = this.scoreboardsUpdatable.scoreboards
 
     /** List of [ScoreTimePoint]s tracking the states of the different [Scoreboard]s over time. */
     override val scoreHistory: List<ScoreTimePoint>
-        get() = this._scoreboards.timeSeries
+        get() = this.scoreboardsUpdatable.timeSeries
 
     /** Internal data structure that tracks all [WebSocketConnection]s and their ready state (for [RunManagerStatus.PREPARING_TASK]) */
     private val readyLatch = ReadyLatch<WebSocketConnection>()
 
-    /** The internal [ScoreboardsUpdatable] instance for this [SynchronousRunManager]. */
-    private val _scoreboards = ScoreboardsUpdatable(this.competitionDescription.generateDefaultScoreboards(), SCOREBOARD_UPDATE_INTERVAL_MS, this.run)
+    /** The internal [ScoreboardsUpdatable] instance for this [InteractiveSynchronousRunManager]. */
+    private val scoreboardsUpdatable = ScoreboardsUpdatable(this.competitionDescription.generateDefaultScoreboards(), SCOREBOARD_UPDATE_INTERVAL_MS, this.run)
 
-    /** The internal [MessageQueueUpdatable] instance used by this [SynchronousRunManager]. */
+    /** The internal [MessageQueueUpdatable] instance used by this [InteractiveSynchronousRunManager]. */
     private val messageQueueUpdatable = MessageQueueUpdatable(RunExecutor)
 
-    /** The internal [ScoresUpdatable] instance for this [SynchronousRunManager]. */
-    private val scoresUpdatable = ScoresUpdatable(this.id, this._scoreboards, this.messageQueueUpdatable)
+    /** The internal [ScoresUpdatable] instance for this [InteractiveSynchronousRunManager]. */
+    private val scoresUpdatable = ScoresUpdatable(this.id, this.scoreboardsUpdatable, this.messageQueueUpdatable)
 
-    /** The internal [DAOUpdatable] instance used by this [SynchronousRunManager]. */
+    /** The internal [DAOUpdatable] instance used by this [InteractiveSynchronousRunManager]. */
     private val daoUpdatable = DAOUpdatable(RunExecutor.runs, this.run)
 
     /** The internal [DAOUpdatable] used to end a task once no more submissions are possible */
-    private val endTaskUpdatable = EndTaskUpdatable(this)
+    private val endTaskUpdatable = EndTaskUpdatable(this, RunActionContext.DUMMY_ADMIN )
 
-    /** List of [Updatable] held by this [SynchronousRunManager]. */
+    /** List of [Updatable] held by this [InteractiveSynchronousRunManager]. */
     private val updatables = mutableListOf<Updatable>()
 
-    ///** The pipeline for [Submission] processing. All [Submission]s undergo three steps: filter, validation and score update. */
-    //private val submissionPipeline: List<Triple<SubmissionFilter,SubmissionValidator, TaskRunScorer>> = LinkedList()
 
-    /** A lock for state changes to this [SynchronousRunManager]. */
+    /** A lock for state changes to this [InteractiveSynchronousRunManager]. */
     private val stateLock = ReentrantReadWriteLock()
+
+    private fun checkContext(context: RunActionContext) {
+        if (!context.isAdmin)
+            throw IllegalAccessError("functionality of SynchronousInteractiveRunManager only available to administrators")
+    }
 
     init {
         /* Register relevant Updatables. */
         this.updatables.add(this.scoresUpdatable)
-        this.updatables.add(this._scoreboards)
+        this.updatables.add(this.scoreboardsUpdatable)
         this.updatables.add(this.messageQueueUpdatable)
         this.updatables.add(this.daoUpdatable)
         this.updatables.add(this.endTaskUpdatable)
@@ -160,14 +164,14 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         }
 
         /** Re-enqueue pending submissions (if any). */
-        this.run.runs.forEach { run ->
+        this.run.tasks.forEach { run ->
             run.submissions.filter { it.status == SubmissionStatus.INDETERMINATE }.forEach {
                 run.validator.validate(it)
             }
         }
 
         /** Re-calculate all the relevant scores. */
-        this.run.runs.forEach { run ->
+        this.run.tasks.forEach { run ->
             run.submissions.forEach { sub ->
                 this.scoresUpdatable.enqueue(Pair(run, sub))
             }
@@ -175,8 +179,9 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         this.scoresUpdatable.update(this.status)
     }
 
-    override fun start() = this.stateLock.write {
+    override fun start(context: RunActionContext) = this.stateLock.write {
         check(this.status == RunManagerStatus.CREATED) { "SynchronizedRunManager is in status ${this.status} and cannot be started." }
+        checkContext(context)
 
         /* Start the run. */
         this.run.start()
@@ -193,8 +198,9 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         LOGGER.info("SynchronousRunManager ${this.id} started")
     }
 
-    override fun end() = this.stateLock.write {
+    override fun end(context: RunActionContext) = this.stateLock.write {
         check(this.status != RunManagerStatus.TERMINATED) { "SynchronizedRunManager is in status ${this.status} and cannot be terminated." }
+        checkContext(context)
 
         /* End the run. */
         this.run.end()
@@ -211,7 +217,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         LOGGER.info("SynchronousRunManager ${this.id} terminated")
     }
 
-    override fun previousTask(): Boolean = this.stateLock.write {
+    override fun previousTask(context: RunActionContext): Boolean = this.stateLock.write {
+        checkContext(context)
         val newIndex = this.competitionDescription.tasks.indexOf(this.currentTask) - 1
         return try {
             this.goToTask(newIndex)
@@ -221,7 +228,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         }
     }
 
-    override fun nextTask(): Boolean = this.stateLock.write {
+    override fun nextTask(context: RunActionContext): Boolean = this.stateLock.write {
+        checkContext(context)
         val newIndex = this.competitionDescription.tasks.indexOf(this.currentTask) + 1
         return try {
             this.goToTask(newIndex)
@@ -231,7 +239,12 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         }
     }
 
-    override fun goToTask(index: Int) = this.stateLock.write {
+    override fun goToTask(context: RunActionContext, index: Int) {
+        checkContext(context)
+        goToTask(index)
+    }
+
+    private fun goToTask(index: Int) = this.stateLock.write {
         check(this.status == RunManagerStatus.ACTIVE || this.status == RunManagerStatus.TASK_ENDED) { "SynchronizedRunManager is in status ${this.status}. Tasks can therefore not be changed." }
         if (index >= 0 && index < this.competitionDescription.tasks.size) {
 
@@ -242,7 +255,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
             this.status = RunManagerStatus.ACTIVE
 
             /* Mark scoreboards for update. */
-            this._scoreboards.dirty = true
+            this.scoreboardsUpdatable.dirty = true
 
             /* Enqueue WS message for sending */
             this.messageQueueUpdatable.enqueue(ServerMessage(this.id.string, ServerMessageType.COMPETITION_UPDATE))
@@ -253,10 +266,12 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         }
     }
 
-    override fun startTask() = this.stateLock.write {
+    override fun startTask(context: RunActionContext) = this.stateLock.write {
         check(this.status == RunManagerStatus.ACTIVE || this.status == RunManagerStatus.TASK_ENDED) { "SynchronizedRunManager is in status ${this.status}. Tasks can therefore not be started." }
+        checkContext(context)
+
         /* Create and prepare pipeline for submission. */
-        this.run.newTaskRun(this.currentTask.id)
+        this.run.newTaskRun(this.currentTask(context).id)
 
         /* Create and prepare pipeline for submission (FIXME: is this used?). */
         //val ret = this.run.newTaskRun(this.currentTask.id)
@@ -267,7 +282,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         this.status = RunManagerStatus.PREPARING_TASK
 
         /* Mark scoreboards and dao for update. */
-        this._scoreboards.dirty = true
+        this.scoreboardsUpdatable.dirty = true
         this.daoUpdatable.dirty = true
 
         /* Reset the ReadyLatch. */
@@ -279,7 +294,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         LOGGER.info("SynchronousRunManager ${this.id} started task task ${this.currentTask}")
     }
 
-    override fun abortTask() = this.stateLock.write {
+    override fun abortTask(context: RunActionContext) = this.stateLock.write {
+        checkContext(context)
         if (!(this.status == RunManagerStatus.PREPARING_TASK || this.status == RunManagerStatus.RUNNING_TASK)) {
             throw IllegalStateException("SynchronizedRunManager is in status ${this.status}. Tasks can therefore not be aborted.")
         }
@@ -291,7 +307,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         this.status = RunManagerStatus.TASK_ENDED
 
         /* Mark scoreboards and dao for update. */
-        this._scoreboards.dirty = true
+        this.scoreboardsUpdatable.dirty = true
         this.daoUpdatable.dirty = true
 
         /* Enqueue WS message for sending */
@@ -301,21 +317,21 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Returns [CompetitionRun.TaskRun]s for a specific task [UID]. May be empty.
+     * Returns [InteractiveSynchronousCompetitionRun.TaskRun]s for a specific task [UID]. May be empty.
      *
-     * @param taskRunId The [UID] of the [CompetitionRun.TaskRun].
+     * @param taskRunId The [UID] of the [InteractiveSynchronousCompetitionRun.TaskRun].
      */
-    override fun taskRunForId(taskRunId: UID): CompetitionRun.TaskRun? = this.run.runs.find { it.uid == taskRunId }
+    override fun taskRunForId(context: RunActionContext, taskRunId: UID): InteractiveSynchronousCompetitionRun.TaskRun? = this.run.tasks.find { it.uid == taskRunId }
 
     /**
-     * Returns the number of [CompetitionRun.TaskRun]s held by this [RunManager].
+     * Returns the number of [InteractiveSynchronousCompetitionRun.TaskRun]s held by this [RunManager].
      *
-     * @return The number of [CompetitionRun.TaskRun]s held by this [RunManager]
+     * @return The number of [InteractiveSynchronousCompetitionRun.TaskRun]s held by this [RunManager]
      */
-    override fun taskRuns(): Int = this.run.runs.size
+    override fun taskCount(context: RunActionContext): Int = this.run.tasks.size
 
     /**
-     * Adjusts the duration of the current [CompetitionRun.TaskRun] by the specified amount. Amount can be either positive or negative.
+     * Adjusts the duration of the current [InteractiveSynchronousCompetitionRun.TaskRun] by the specified amount. Amount can be either positive or negative.
      *
      * @param s The number of seconds to adjust the duration by.
      * @return Time remaining until the task will end in milliseconds
@@ -323,7 +339,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
      * @throws IllegalArgumentException If the specified correction cannot be applied.
      * @throws IllegalStateException If [RunManager] was not in status [RunManagerStatus.RUNNING_TASK].
      */
-    override fun adjustDuration(s: Int): Long = this.stateLock.read {
+    override fun adjustDuration(context: RunActionContext, s: Int): Long = this.stateLock.read {
+        checkContext(context)
         check(this.status == RunManagerStatus.RUNNING_TASK) { "SynchronizedRunManager is in status ${this.status}. Duration of task can therefore not be adjusted." }
 
         val currentTaskRun = this.currentTaskRun ?: throw IllegalStateException("SynchronizedRunManager is in status ${this.status} but has no active TaskRun. This is a serious error!")
@@ -334,13 +351,15 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Returns the time in milliseconds that is left until the end of the current [CompetitionRun.TaskRun].
+     * Returns the time in milliseconds that is left until the end of the current [InteractiveSynchronousCompetitionRun.TaskRun].
      * Only works if the [RunManager] is in state [RunManagerStatus.RUNNING_TASK]. If no task is running,
      * this method returns -1L.
      *
      * @return Time remaining until the task will end or -1, if no task is running.
      */
-    override fun timeLeft(): Long = this.stateLock.read {
+    override fun timeLeft(context: RunActionContext): Long = timeLeft()
+
+    fun timeLeft(): Long = this.stateLock.read {
         if (this.status == RunManagerStatus.RUNNING_TASK) {
             val currentTaskRun = this.currentTaskRun ?: throw IllegalStateException("SynchronizedRunManager is in status ${this.status} but has no active TaskRun. This is a serious error!")
             return max(0L, currentTaskRun.duration * 1000L - (System.currentTimeMillis() - currentTaskRun.started!!))
@@ -350,7 +369,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Lists  all WebsSocket session IDs for viewer instances currently registered to this [SynchronousRunManager].
+     * Lists  all WebsSocket session IDs for viewer instances currently registered to this [InteractiveSynchronousRunManager].
      *
      * @return Map of session ID to ready state.
      */
@@ -361,7 +380,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
      *
      * @param viewerId The ID of the viewer's WebSocket session.
      */
-    override fun overrideReadyState(viewerId: String): Boolean = this.stateLock.read {
+    override fun overrideReadyState(context: RunActionContext, viewerId: String): Boolean = this.stateLock.read {
+        checkContext(context)
         check(this.status == RunManagerStatus.PREPARING_TASK) { }
         return try {
             val viewer = this.readyLatch.state().keys.find { it.sessionId == viewerId }
@@ -397,8 +417,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Processes incoming [Submission]s. If a [CompetitionRun.TaskRun] is running then that [Submission] will usually
-     * be associated with that [CompetitionRun.TaskRun].
+     * Processes incoming [Submission]s. If a [InteractiveSynchronousCompetitionRun.TaskRun] is running then that [Submission] will usually
+     * be associated with that [InteractiveSynchronousCompetitionRun.TaskRun].
      *
      * This method will not throw an exception and instead return false if a [Submission] was
      * ignored for whatever reason (usually a state mismatch). It is up to the caller to re-invoke
@@ -407,7 +427,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
      * @param sub [Submission] that should be registered.
      */
     override fun postSubmission(sub: Submission): SubmissionStatus = this.stateLock.read {
-        check(this.status == RunManagerStatus.RUNNING_TASK) { "SynchronizedRunManager is in status ${this.status} and can currently not accept submissions." }
+        check(this.status == RunManagerStatus.RUNNING_TASK) { "SynchronousInteractiveRunManager is in status ${this.status} and can currently not accept submissions." }
 
         /* Register submission. */
         val task = this.currentTaskRun!!
@@ -426,8 +446,8 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Processes incoming [Submission]s. If a [CompetitionRun.TaskRun] is running then that [Submission] will usually
-     * be associated with that [CompetitionRun.TaskRun].
+     * Processes incoming [Submission]s. If a [InteractiveSynchronousCompetitionRun.TaskRun] is running then that [Submission] will usually
+     * be associated with that [InteractiveSynchronousCompetitionRun.TaskRun].
      *
      * This method will not throw an exception and instead return false if a [Submission] was
      * ignored for whatever reason (usually a state mismatch). It is up to the caller to re-invoke
@@ -449,7 +469,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
         this.daoUpdatable.dirty = true
 
         /* Enqueue submission for post-processing. */
-        this.scoresUpdatable.enqueue(Pair(found.taskRun!!, found))
+        this.scoresUpdatable.enqueue(Pair(found.task!!, found))
 
         /* Enqueue WS message for sending */
         this.messageQueueUpdatable.enqueue(ServerMessage(this.id.string, ServerMessageType.TASK_UPDATED))
@@ -458,7 +478,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Internal method that orchestrates the internal progression of the [CompetitionRun].
+     * Internal method that orchestrates the internal progression of the [InteractiveSynchronousCompetitionRun].
      */
     override fun run() {
         /** Sort list of by [Phase] in ascending order. */
@@ -466,7 +486,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
 
         var errorCounter = 0
 
-        /** Start [SynchronousRunManager] . */
+        /** Start [InteractiveSynchronousRunManager] . */
         while (this.status != RunManagerStatus.TERMINATED) {
             try {
                 /* Obtain lock on current state. */
@@ -521,7 +541,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * Invokes all [Updatable]s registered with this [SynchronousRunManager].
+     * Invokes all [Updatable]s registered with this [InteractiveSynchronousRunManager].
      */
     private fun invokeUpdatables() {
         this.updatables.forEach {
@@ -536,7 +556,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
     }
 
     /**
-     * This is an internal method that facilitates internal state updates to this [SynchronousRunManager],
+     * This is an internal method that facilitates internal state updates to this [InteractiveSynchronousRunManager],
      * i.e., status updates that are not triggered by an outside interaction.
      */
     private fun internalStateUpdate() {
@@ -563,7 +583,7 @@ class SynchronousRunManager(val run: CompetitionRun) : RunManager {
                     val task = this.currentTaskRun!!
                     task.end()
                     this.status = RunManagerStatus.TASK_ENDED
-                    AuditLogger.taskEnd(this.id, this.currentTask.name, LogEventSource.INTERNAL, null);
+                    AuditLogger.taskEnd(this.id, this.currentTask.name, LogEventSource.INTERNAL, null)
                     EventStreamProcessor.event(TaskEndEvent(this.id, task.uid))
                 }
 

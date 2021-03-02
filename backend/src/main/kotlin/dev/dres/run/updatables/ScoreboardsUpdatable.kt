@@ -42,7 +42,7 @@ class ScoreboardsUpdatable(val scoreboards: List<Scoreboard>, val updateInterval
             this.dirty = false
             this.lastUpdate = now
             this.scoreboards.forEach {
-                it.update(this.run.runs)
+                it.update(this.run.tasks)
                 it.scores().forEach{ score ->
                     this._timeSeries.add(ScoreTimePoint(it.name, score))
                     EventStreamProcessor.event(ScoreEvent(this.run.id, score.teamId, it.name, score.score ))

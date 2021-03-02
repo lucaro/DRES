@@ -8,7 +8,7 @@ import dev.dres.data.model.basics.time.TemporalRange
 import dev.dres.data.model.competition.TaskDescription
 import dev.dres.data.model.competition.TaskDescriptionTarget
 import dev.dres.data.model.run.CompetitionRunId
-import dev.dres.data.model.run.TaskRunId
+import dev.dres.data.model.run.TaskId
 import dev.dres.run.eventstream.*
 import dev.dres.utilities.TimeUtil
 import java.io.File
@@ -19,7 +19,7 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
     private val writer = PrintWriter(File("statistics/result_log_statistics_${System.currentTimeMillis()}.csv").also { it.parentFile.mkdirs() })
 
     private val lastActiveTask = mutableMapOf<CompetitionRunId, TaskDescription>()
-    private val lastActiveTaskId = mutableMapOf<CompetitionRunId, TaskRunId>()
+    private val lastActiveTaskId = mutableMapOf<CompetitionRunId, TaskId>()
     private val lastActiveTargets = mutableMapOf<UID, List<Pair<MediaItem, TemporalRange?>>>()
 
 
@@ -34,7 +34,7 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
                 lastActiveTask[event.runId] = event.taskDescription
                 lastActiveTaskId[event.runId] = event.taskId
                 lastActiveTargets[event.runId] = when(event.taskDescription.target) {
-                    is TaskDescriptionTarget.JudgementTaskDescriptionTarget -> return emptyList()//no analysis possible
+                    is TaskDescriptionTarget.JudgementTaskDescriptionTarget, is TaskDescriptionTarget.VoteTaskDescriptionTarget, -> return emptyList()//no analysis possible
                     is TaskDescriptionTarget.MediaItemTarget -> listOf(event.taskDescription.target.item to null)
                     is TaskDescriptionTarget.VideoSegmentTarget ->  listOf(event.taskDescription.target.item to event.taskDescription.target.temporalRange)
                     is TaskDescriptionTarget.MultipleMediaItemTarget -> event.taskDescription.target.items.map { it to null }
@@ -85,7 +85,7 @@ class ResultLogStatisticsHandler(private val segmentIndex: DaoIndexer<MediaItemS
                 writer.flush()
 
                 return results
-                
+
             }
             else -> { /* ignore */ }
         }

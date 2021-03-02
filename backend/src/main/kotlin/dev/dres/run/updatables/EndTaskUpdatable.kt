@@ -1,12 +1,13 @@
 package dev.dres.run.updatables
 
 import dev.dres.data.model.competition.TaskType
+import dev.dres.data.model.run.RunActionContext
 import dev.dres.data.model.run.SubmissionStatus
-import dev.dres.run.RunManager
+import dev.dres.run.InteractiveRunManager
 import dev.dres.run.RunManagerStatus
 import java.util.concurrent.atomic.AtomicInteger
 
-class EndTaskUpdatable(private val run: RunManager) : Updatable {
+class EndTaskUpdatable(private val run: InteractiveRunManager, private val context: RunActionContext) : Updatable {
 
     override val phase: Phase = Phase.MAIN
 
@@ -14,9 +15,9 @@ class EndTaskUpdatable(private val run: RunManager) : Updatable {
     private var submissions = AtomicInteger(0)
 
     override fun update(status: RunManagerStatus) {
-        val limitingFilter = run.currentTaskRun?.task?.taskType?.filter?.find{ it.option == TaskType.SubmissionFilterType.LIMIT_CORRECT_PER_TEAM } ?: return
+        val limitingFilter = run.currentTaskRun?.taskDescription?.taskType?.filter?.find{ it.option == TaskType.SubmissionFilterType.LIMIT_CORRECT_PER_TEAM } ?: return
         val limit = limitingFilter.parameters.getOrDefault("limit", "1").toIntOrNull() ?: 1
-        if (this.run.timeLeft() > 0) {
+        if (this.run.timeLeft(context) > 0) {
             val taskRun = this.run.currentTaskRun
             if (taskRun != null && this.submissions.getAndSet(taskRun.submissions.size) < taskRun.submissions.size) {
                 /* Determine of all teams have submitted . */
@@ -26,7 +27,7 @@ class EndTaskUpdatable(private val run: RunManager) : Updatable {
 
                 /* Do all teams have reached the limit of correct submissions ? */
                 if (allDone) {
-                    this.run.abortTask()
+                    this.run.abortTask(context)
                     this.submissions.set(0)
                 }
             }

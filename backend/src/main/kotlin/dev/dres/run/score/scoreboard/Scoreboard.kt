@@ -3,8 +3,8 @@ package dev.dres.run.score.scoreboard
 import dev.dres.data.model.UID
 import dev.dres.data.model.competition.Team
 import dev.dres.data.model.competition.TeamId
-import dev.dres.data.model.run.CompetitionRun
-import dev.dres.data.model.run.TaskRunId
+import dev.dres.data.model.run.Task
+import dev.dres.data.model.run.TaskId
 import dev.dres.run.score.interfaces.TaskRunScorer
 
 /**
@@ -43,12 +43,12 @@ interface Scoreboard {
     /**
      * Updates the [Scoreboard].
      */
-    fun update(runs: List<CompetitionRun.TaskRun>)
+    fun update(runs: List<Task>)
 
     /**
      * Updates using a map of the [TaskRun] ids to the corresponding [TaskRunScorer]s
      */
-    fun update(scorers: Map<TaskRunId, TaskRunScorer>)
+    fun update(scorers: Map<TaskId, TaskRunScorer>)
 
     /**
      * Returns a summary of all current scores in a [ScoreOverview]
