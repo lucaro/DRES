@@ -47,7 +47,7 @@ object DRES {
 
         /* Initialize Event Stream Processor */
         EventStreamProcessor.register(SubmissionStatisticsHandler(), ResultLogStatisticsHandler(dataAccessLayer.mediaSegmentItemIdIndex), TeamCombinationScoreHandler())
-        EventStreamProcessor.init()
+        EventStreamProcessor.init(config)
 
         /* Initialize Rest API. */
         RestApi.init(config, dataAccessLayer)

@@ -2,6 +2,7 @@ package dev.dres.data.model
 
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.File
 
 data class Config(
@@ -13,13 +14,15 @@ data class Config(
         val externalPath: String = "./external",
         val dataPath: String = "./data",
         val cachePath: String = "./cache",
-        val logoMaxSize: Int = 1000) {
+        val logoMaxSize: Int = 1000,
+        val influxUrl: String? = null,
+        val influxToken: String = "") {
 
     companion object{
         fun read(file: File): Config? {
             val mapper = ObjectMapper()
             return try {
-                mapper.readValue(file, Config::class.java)
+                mapper.readValue<Config>(file)
             } catch (e: Exception) {
                 null
             }

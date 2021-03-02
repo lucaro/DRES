@@ -1,6 +1,8 @@
 package dev.dres.run.eventstream
 
+import dev.dres.data.model.Config
 import dev.dres.run.eventstream.sinks.EventSink
+import dev.dres.run.eventstream.sinks.InfluxDBEventSink
 import dev.dres.run.eventstream.sinks.JsonEventSink
 import dev.dres.utilities.extensions.read
 import dev.dres.utilities.extensions.write
@@ -28,12 +30,15 @@ object EventStreamProcessor {
     fun event(event: StreamEvent) = eventQueue.add(event)
     fun register(vararg handler: StreamEventHandler) = handlerLock.write { eventHandlers.addAll(handler) }
 
-    fun init() {
+    fun init(config: Config) {
         if (active) {
             return
         }
 
         eventSinks.add(JsonEventSink())
+        if (config.influxUrl != null){
+            eventSinks.add(InfluxDBEventSink(config.influxUrl, config.influxToken))
+        }
 
         active = true
 

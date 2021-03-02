@@ -267,3 +267,5 @@ backend/ext/ffmpeg
 events/
 backend/data*
 backend/statistics
+backend/.data
+*cristina_illi*
